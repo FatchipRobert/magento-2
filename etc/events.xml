@@ -52,4 +52,7 @@
     <event name="payone_core_transactionstatus_failed">
         <observer name="payone_transactionstatus_failed" instance="Payone\Core\Observer\Transactionstatus\Failed" />
     </event>
+    <event name="adminhtml_sales_order_creditmemo_register_before">
+        <observer name="payone_adminhtml_sales_order_creditmemo_register_before" instance="Payone\Core\Observer\CreditmemoRegisterBefore" />
+    </event>
 </config>
