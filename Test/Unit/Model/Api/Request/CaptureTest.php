@@ -76,9 +76,6 @@ class CaptureTest extends BaseTestCase
 
     public function testSendRequest()
     {
-        $invoice = ['items' => ['id' => 1]];
-        $this->shopHelper->method('getRequestParameter')->willReturn($invoice);
-
         $payment = $this->getMockBuilder(PayoneMethod::class)->disableOriginalConstructor()->getMock();
         $payment->method('getOperationMode')->willReturn('test');
 

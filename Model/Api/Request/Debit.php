@@ -94,15 +94,18 @@ class Debit extends Base
         $aPositions = [];
         $blFull = true;
         foreach ($oOrder->getAllItems() as $oItem) {
+            $blFound = false;
             foreach ($oCreditmemo->getAllItems() as $oCreditMemoItem) {
-                if ($oCreditMemoItem->getOrderItemId() == $oItem->getItemId() && $oCreditMemoItem->getQty()) {
+                if ($oCreditMemoItem->getOrderItemId() == $oItem->getItemId() && $oCreditMemoItem->getQty() > 0) {
+                    $blFound = true;
                     $aPositions[$oItem->getProductId().$oItem->getSku()] = $oCreditMemoItem->getQty();
                     if ($oCreditMemoItem->getQty() != $oItem->getQtyOrdered()) {
                         $blFull = false;
                     }
-                } else {
-                    $blFull = false;
                 }
+            }
+            if ($blFound === false) {
+                $blFull = false;
             }
         }
 

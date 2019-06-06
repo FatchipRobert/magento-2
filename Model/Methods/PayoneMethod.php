@@ -96,10 +96,6 @@ abstract class PayoneMethod extends BaseMethod
      */
     protected function sendPayoneCapture(InfoInterface $payment, $amount)
     {
-        if ($this->shopHelper->getConfigParam('currency') == 'display' && $payment->getOrder()->hasInvoices()) {
-            $oInvoice = $payment->getOrder()->getInvoiceCollection()->getLastItem();
-            $amount = $oInvoice->getGrandTotal(); // send display amount instead of base amount
-        }
         $aResponse = $this->captureRequest->sendRequest($this, $payment, $amount);
         if ($aResponse['status'] == 'ERROR') {// request returned an error
             throw new LocalizedException(__($aResponse['errorcode'].' - '.$aResponse['customermessage']));

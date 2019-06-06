@@ -163,8 +163,6 @@ class DebitTest extends BaseTestCase
             ]
         );
 
-        $requestparam = ['items' => ['id' => ['qty' => 1]], 'shipping_amount' => 5, 'payone_iban' => 'DE85123456782599100003', 'payone_bic' => 'TESTTEST'];
-        $this->shopHelper->method('getRequestParameter')->willReturn($requestparam);
         $this->shopHelper->method('getConfigParam')->willReturn('display');
 
         $payment = $this->getPaymentMock();

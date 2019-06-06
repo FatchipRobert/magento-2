@@ -114,13 +114,6 @@ class BaseTest extends BaseTestCase
         $this->assertEquals($expected, $result);
     }
 
-    public function testGetRequestParameter()
-    {
-        $expected = 'value';
-        $result = $this->base->getRequestParameter('param');
-        $this->assertEquals($expected, $result);
-    }
-
     public function testUnserialize()
     {
         $expected = ['test' => '123'];
