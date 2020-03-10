@@ -143,7 +143,7 @@ class AmazonPay extends PayoneMethod
      */
     protected function handleResponse($aResponse, Order $oOrder, $amount)
     {
-        if ($aResponse['status'] == 'ERROR') {
+        if (isset($aResponse['status']) && $aResponse['status'] == 'ERROR') {
             if (!$this->blIsRetry && $this->checkoutSession->getAmazonRetryAsync() && $aResponse['errorcode'] == 980) {
                 $aResponse = $this->authorizationRequest->sendRequest($this, $oOrder, $amount);
                 $this->checkoutSession->setShowAmazonPendingNotice(true);

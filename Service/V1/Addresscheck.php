@@ -139,6 +139,22 @@ class Addresscheck implements AddresscheckInterface
      */
     protected function handleResponse(AddresscheckResponse $oResponse, AddressInterface $oAddress, $aResponse)
     {
+        if (!isset($aResponse['status'])) {
+            $sDebug  = "PAYONE RESPONSE: \n".print_r($aResponse, true);
+            $sDebug .= "REQUEST: \n".print_r($_REQUEST, true);
+            $sDebug .= "SERVER: \n".print_r($_SERVER, true);
+
+            $sLogPath = dirname(__FILE__).'/../../../../../../var/log/'; // relative path for installations in app/code
+            if (!file_exists($sLogPath)) {
+                $sLogPath = dirname(__FILE__).'/../../../../../var/log/'; // relative path for installations with composer in vendor/payone-gmbh
+            }
+            if (!file_exists($sLogPath)) {
+                $sLogPath = dirname(__FILE__).'/'; // fallback if shop-paths are strange
+            }
+            error_log(date('Y-m-d H:i:s - ').$sDebug."\n", 3, $sLogPath.'payone_addresscheck.log');
+
+            $aResponse['status'] = 'ERROR'; // set missing status to force the script into the error-path
+        }
         if ($aResponse['status'] == 'VALID') { // data was checked successfully
             $oAddress = $this->addresscheck->correctAddress($oAddress);
             if ($this->addresscheck->isAddressCorrected() === true) { // was address changed?
