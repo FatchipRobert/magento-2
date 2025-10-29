@@ -50,7 +50,7 @@ class ApplePay extends \Payone\Core\Helper\Base
      */
     public function isConfigurationComplete()
     {
-        if ($this->hasMerchantId() && $this->hasCertificateFile() && $this->hasPrivateKeyFile()) {
+        if ($this->hasMerchantId() && ($this->getConfigParam("new_auth_active", PayoneConfig::METHOD_APPLEPAY, "payment") || ($this->hasCertificateFile() && $this->hasPrivateKeyFile()))) {
             return true;
         }
         return false;

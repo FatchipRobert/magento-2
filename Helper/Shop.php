@@ -109,6 +109,20 @@ class Shop extends \Payone\Core\Helper\Base
     }
 
     /**
+     * Returns shop domain
+     *
+     * @return string
+     */
+    public function getShopDomain()
+    {
+        $aUrl = parse_url($this->shopHelper->getStoreBaseUrl());
+        if (!empty($aUrl['host'])) {
+            return $aUrl['host'];
+        }
+        return "";
+    }
+
+    /**
      * Return locale config of current store
      *
      * @return string

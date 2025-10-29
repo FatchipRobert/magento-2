@@ -291,6 +291,7 @@
                 <title>PAYONE Apple Pay</title>
                 <allowspecific>0</allowspecific>
                 <group>payone</group>
+                <new_auth_active>1</new_auth_active>
             </payone_applepay>
             <payone_bancontact translate="title" module="Payone_Core">
                 <active>1</active>

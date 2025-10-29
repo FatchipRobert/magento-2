@@ -366,4 +366,31 @@ class Api extends Base
         }
         return $dAmount;
     }
+
+    /**
+     * @param  SalesOrder   $oOrder
+     * @param  PayoneMethod $oPayment
+     * @param  string|null  $sStoreCode
+     * @return string
+     */
+    public function getReferenceNrByOrder(SalesOrder $oOrder, PayoneMethod $oPayment, $sStoreCode = null)
+    {
+        $sRefNr = $this->getConfigParam('ref_prefix', 'global', 'payone_general', $sStoreCode).$oOrder->getIncrementId(); // ref_prefix to prevent duplicate refnumbers in testing environments
+        $sRefNr = $oPayment->formatReferenceNumber($sRefNr); // some payment methods have refnr regulations
+        return $sRefNr;
+    }
+
+    /**
+     * @param  SalesOrder   $oOrder
+     * @param  PayoneMethod $oPayment
+     * @param  string|null  $sStoreCode
+     * @return string
+     */
+    public function getReferenceNrByQuote(Quote $oQuote, PayoneMethod $oPayment, $sStoreCode = null)
+    {
+        $sRefNr = "q".$oQuote->getId();
+        $sRefNr = $this->getConfigParam('ref_prefix', 'global', 'payone_general', $sStoreCode).$sRefNr; // ref_prefix to prevent duplicate refnumbers in testing environments
+        $sRefNr = $oPayment->formatReferenceNumber($sRefNr); // some payment methods have refnr regulations
+        return $sRefNr;
+    }
 }

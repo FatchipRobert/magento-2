@@ -148,9 +148,7 @@ class Authorization extends AddressRequest
      */
     protected function setAuthorizationParameters(PayoneMethod $oPayment, Order $oOrder, $dAmount)
     {
-        $sRefNr = $this->shopHelper->getConfigParam('ref_prefix', 'global', 'payone_general', $this->storeCode).$oOrder->getIncrementId(); // ref_prefix to prevent duplicate refnumbers in testing environments
-        $sRefNr = $oPayment->formatReferenceNumber($sRefNr); // some payment methods have refnr regulations
-        $this->addParameter('reference', $sRefNr); // add ref-nr to request
+        $this->addParameter('reference', $this->apiHelper->getReferenceNrByOrder($oOrder, $oPayment, $this->storeCode)); // add ref-nr to request
 
         $this->addParameter('amount', number_format($dAmount, 2, '.', '') * 100); // add price to request
         $this->addParameter('currency', $this->apiHelper->getCurrencyFromOrder($oOrder)); // add currency to request

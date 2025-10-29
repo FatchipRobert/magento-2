@@ -28,6 +28,20 @@ class SessionHandler
     protected $applePayHelper;
 
     /**
+     * Checkout session object
+     *
+     * @var \Magento\Checkout\Model\Session
+     */
+    protected $checkoutSession;
+
+    /**
+     * Request object
+     *
+     * @var \Payone\Core\Model\Api\Request\Genericpayment\InitApplePaySession
+     */
+    protected $initApplepaySessionRequest;
+
+    /**
      * Request URL for collecting the Apple Pay session
      *
      * @var string
@@ -37,32 +51,24 @@ class SessionHandler
     /**
      * Constructor
      *
-     * @param \Magento\Framework\HTTP\Client\Curl $curl
-     * @param \Payone\Core\Helper\Shop            $shopHelper
-     * @param \Payone\Core\Helper\ApplePay        $applePayHelper
+     * @param \Magento\Framework\HTTP\Client\Curl                               $curl
+     * @param \Payone\Core\Helper\Shop                                          $shopHelper
+     * @param \Payone\Core\Helper\ApplePay                                      $applePayHelper
+     * @param \Magento\Checkout\Model\Session                                   $checkoutSession
+     * @param \Payone\Core\Model\Api\Request\Genericpayment\InitApplePaySession $initApplepaySessionRequest
      */
     public function __construct(
         \Magento\Framework\HTTP\Client\Curl $curl,
         \Payone\Core\Helper\Shop $shopHelper,
-        \Payone\Core\Helper\ApplePay $applePayHelper
+        \Payone\Core\Helper\ApplePay $applePayHelper,
+        \Magento\Checkout\Model\Session $checkoutSession,
+        \Payone\Core\Model\Api\Request\Genericpayment\InitApplePaySession $initApplepaySessionRequest
     ) {
         $this->curl = $curl;
         $this->shopHelper = $shopHelper;
         $this->applePayHelper = $applePayHelper;
-    }
-
-    /**
-     * Returns shop domain
-     *
-     * @return string
-     */
-    protected function getShopDomain()
-    {
-        $aUrl = parse_url($this->shopHelper->getStoreBaseUrl());
-        if (!empty($aUrl['host'])) {
-            return $aUrl['host'];
-        }
-        return "";
+        $this->checkoutSession = $checkoutSession;
+        $this->initApplepaySessionRequest = $initApplepaySessionRequest;
     }
 
     /**
@@ -99,19 +105,13 @@ class SessionHandler
         return $sPrivateKeyFilePath;
     }
 
-    /**
-     * Requests apple pay session and returns it
-     *
-     * @return bool|string
-     * @throws \Exception
-     */
-    public function getApplePaySession()
+    protected function getSessionByCertFile()
     {
         $aRequest = [
             'merchantIdentifier' => $this->shopHelper->getConfigParam("merchant_id", PayoneConfig::METHOD_APPLEPAY, "payment"),
             'displayName' => 'PAYONE Apple Pay Magento2',
             'initiative' => 'web',
-            'initiativeContext' => $this->getShopDomain(),
+            'initiativeContext' => $this->shopHelper->getShopDomain(),
         ];
 
         $this->curl->setOption(CURLOPT_SSL_VERIFYHOST, 0);
@@ -128,5 +128,39 @@ class SessionHandler
 
         $this->curl->post($this->applePaySessionUrl, json_encode($aRequest));
         return $this->curl->getBody();
+    }
+
+    /**
+     * @return string|false
+     */
+    protected function getSessionFromPayoneApi()
+    {
+        $aReturn = ['success' => false];;
+
+        $oQuote = $this->checkoutSession->getQuote();
+
+        $aResult = $this->initApplepaySessionRequest->sendRequest($oQuote->getPayment()->getMethodInstance(), $oQuote);
+        if (isset($aResult['status'])) {
+            if ($aResult['status'] == 'OK' && !empty($aResult['add_paydata[applepay_payment_session]'])) {
+                return base64_decode($aResult['add_paydata[applepay_payment_session]']);
+            } elseif ($aResult['status'] == 'ERROR' && !empty($aResult['errormessage'])) {
+                throw new \Exception($aResult['errormessage']);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Requests apple pay session and returns it
+     *
+     * @return bool|string
+     * @throws \Exception
+     */
+    public function getApplePaySession()
+    {
+        if ((bool)$this->shopHelper->getConfigParam("new_auth_active", PayoneConfig::METHOD_APPLEPAY, "payment") === true) {
+            return $this->getSessionFromPayoneApi(); // new auth
+        }
+        return $this->getSessionByCertFile(); // old auth
     }
 }
