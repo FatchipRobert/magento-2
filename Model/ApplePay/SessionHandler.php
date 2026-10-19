@@ -28,11 +28,34 @@ class SessionHandler
     protected $applePayHelper;
 
     /**
-     * Request URL for collecting the Apple Pay session
+     * PAYONE init_applepay_session request object
+     *
+     * @var \Payone\Core\Model\Api\Request\Genericpayment\InitApplepaySession
+     */
+    protected $initApplepaySession;
+
+    /**
+     * Payment helper object
+     *
+     * @var \Magento\Payment\Helper\Data
+     */
+    protected $dataHelper;
+
+    /**
+     * Checkout session
+     *
+     * @var \Magento\Checkout\Model\Session
+     */
+    protected $checkoutSession;
+
+    /**
+     * Pattern for Apple Pay gateway hosts the validation URL may point to
+     * Matches e.g. apple-pay-gateway.apple.com, apple-pay-gateway-cert.apple.com,
+     * apple-pay-gateway-nc-pod1.apple.com and cn-apple-pay-gateway-sh-pod1.apple.com
      *
      * @var string
      */
-    protected $applePaySessionUrl =  "https://apple-pay-gateway-cert.apple.com/paymentservices/startSession";
+    private const ALLOWED_HOST_PATTERN = '/^(cn-)?apple-pay-gateway(-[a-z0-9]+)*\.apple\.com$/';
 
     /**
      * Constructor
@@ -40,15 +63,24 @@ class SessionHandler
      * @param \Magento\Framework\HTTP\Client\Curl $curl
      * @param \Payone\Core\Helper\Shop            $shopHelper
      * @param \Payone\Core\Helper\ApplePay        $applePayHelper
+     * @param \Payone\Core\Model\Api\Request\Genericpayment\InitApplepaySession $initApplepaySession
+     * @param \Magento\Payment\Helper\Data        $dataHelper
+     * @param \Magento\Checkout\Model\Session     $checkoutSession
      */
     public function __construct(
         \Magento\Framework\HTTP\Client\Curl $curl,
         \Payone\Core\Helper\Shop $shopHelper,
-        \Payone\Core\Helper\ApplePay $applePayHelper
+        \Payone\Core\Helper\ApplePay $applePayHelper,
+        \Payone\Core\Model\Api\Request\Genericpayment\InitApplepaySession $initApplepaySession,
+        \Magento\Payment\Helper\Data $dataHelper,
+        \Magento\Checkout\Model\Session $checkoutSession
     ) {
         $this->curl = $curl;
         $this->shopHelper = $shopHelper;
         $this->applePayHelper = $applePayHelper;
+        $this->initApplepaySession = $initApplepaySession;
+        $this->dataHelper = $dataHelper;
+        $this->checkoutSession = $checkoutSession;
     }
 
     /**
@@ -104,12 +136,25 @@ class SessionHandler
     }
 
     /**
-     * Requests apple pay session and returns it
+     * Checks if the given file is PEM encoded
      *
+     * @param  string $sFilePath
+     * @return bool
+     */
+    protected function isPemFile($sFilePath)
+    {
+        $sContent = file_get_contents($sFilePath);
+        return $sContent !== false && strpos($sContent, '-----BEGIN') !== false;
+    }
+
+    /**
+     * Requests the Apple Pay session directly from Apple with the merchants own certificate
+     *
+     * @param  string $validationUrl
      * @return bool|string
      * @throws \Exception
      */
-    public function getApplePaySession()
+    protected function getApplePaySessionThroughDevAccount($validationUrl)
     {
         $aRequest = [
             'merchantIdentifier' => $this->shopHelper->getConfigParam("merchant_id", PayoneConfig::METHOD_APPLEPAY, "payment"),
@@ -118,11 +163,14 @@ class SessionHandler
             'initiativeContext' => $this->getShopDomain(),
         ];
 
-        $this->curl->setOption(CURLOPT_SSL_VERIFYHOST, 0);
-        $this->curl->setOption(CURLOPT_SSL_VERIFYPEER, 0);
+        $sCertFilePath = $this->getCertificateFilePath();
+
         $this->curl->setOption(CURLOPT_RETURNTRANSFER, 1);
-        $this->curl->setOption(CURLOPT_RETURNTRANSFER, 1);
-        $this->curl->setOption(CURLOPT_SSLCERT, $this->getCertificateFilePath());
+        $this->curl->setOption(CURLOPT_SSLCERT, $sCertFilePath);
+        if ($this->isPemFile($sCertFilePath) === false) {
+            // The merchant_id.cer downloaded from the Apple developer portal is DER encoded
+            $this->curl->setOption(CURLOPT_SSLCERTTYPE, 'DER');
+        }
         $this->curl->setOption(CURLOPT_SSLKEY, $this->getPrivateKeyFilePath());
 
         $sKeyPass = $this->shopHelper->getConfigParam("private_key_password", PayoneConfig::METHOD_APPLEPAY, "payment");
@@ -130,7 +178,52 @@ class SessionHandler
             $this->curl->setOption( CURLOPT_KEYPASSWD, $sKeyPass);
         }
 
-        $this->curl->post($this->applePaySessionUrl, json_encode($aRequest));
+        $this->curl->post($validationUrl, json_encode($aRequest));
         return $this->curl->getBody();
+    }
+
+    /**
+     * Requests the Apple Pay session through the PAYONE API with the PAYONE Apple developer account
+     *
+     * @return string
+     * @throws \Exception
+     */
+    protected function getApplePaySessionThroughPayone()
+    {
+        $oPayment = $this->dataHelper->getMethodInstance(PayoneConfig::METHOD_APPLEPAY);
+        $oQuote = $this->checkoutSession->getQuote();
+
+        $aResponse = $this->initApplepaySession->sendRequest($oPayment, $oQuote, $this->getShopDomain());
+        if (!isset($aResponse['status']) || $aResponse['status'] != 'OK' || empty($aResponse['add_paydata[applepay_payment_session]'])) {
+            $sErrorMessage = $aResponse['customermessage'] ?? $aResponse['errormessage'] ?? 'Apple Pay session could not be initialized';
+            throw new \Exception($sErrorMessage);
+        }
+
+        $sSession = base64_decode($aResponse['add_paydata[applepay_payment_session]'], true);
+        if ($sSession === false) {
+            throw new \Exception('Apple Pay session returned by PAYONE could not be decoded');
+        }
+        return $sSession;
+    }
+
+    /**
+     * Requests apple pay session and returns it
+     *
+     * @param string $validationUrl
+     * @return bool|string
+     * @throws \Exception
+     */
+    public function getApplePaySession($validationUrl)
+    {
+        $scheme = parse_url($validationUrl, PHP_URL_SCHEME);
+        $host = strtolower((string)parse_url($validationUrl, PHP_URL_HOST));
+        if ($scheme !== 'https' || preg_match(self::ALLOWED_HOST_PATTERN, $host) !== 1) {
+            throw new \Exception('Disallowed Apple Pay validation URL');
+        }
+
+        if ($this->applePayHelper->isSessionThroughPayone() === true) {
+            return $this->getApplePaySessionThroughPayone();
+        }
+        return $this->getApplePaySessionThroughDevAccount($validationUrl);
     }
 }

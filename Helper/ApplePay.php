@@ -27,6 +27,7 @@
 namespace Payone\Core\Helper;
 
 use Payone\Core\Model\PayoneConfig;
+use Payone\Core\Model\Source\ApplePaySessionMode;
 use Magento\Framework\App\Filesystem\DirectoryList;
 
 /**
@@ -84,10 +85,26 @@ class ApplePay extends \Payone\Core\Helper\Base
      */
     public function isConfigurationComplete()
     {
+        if ($this->isSessionThroughPayone() === true) {
+            // Merchant id and certificates are handled by PAYONE in this case
+            return true;
+        }
+
         if ($this->hasMerchantId() && $this->hasCertificateFile() && $this->hasPrivateKeyFile()) {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Check if the Apple Pay session is requested through PAYONE instead of an own Apple developer account
+     *
+     * @return bool
+     */
+    public function isSessionThroughPayone()
+    {
+        $sSessionMode = $this->getConfigParam("session_mode", PayoneConfig::METHOD_APPLEPAY, "payment");
+        return $sSessionMode === ApplePaySessionMode::MODE_PAYONE;
     }
 
     /**

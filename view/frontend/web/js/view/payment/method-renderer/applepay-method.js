@@ -24,7 +24,6 @@
 define(
     [
         'Payone_Core/js/view/payment/method-renderer/base',
-        'jquery',
         'Magento_Checkout/js/model/url-builder',
         'mage/storage',
         'Magento_Checkout/js/model/full-screen-loader',
@@ -34,7 +33,7 @@ define(
         'Magento_Ui/js/model/messageList',
         'mage/translate'
     ],
-    function (Component, $, urlBuilder, storage, fullScreenLoader, quote, customer, totals, messageList, $t) {
+    function (Component, urlBuilder, storage, fullScreenLoader, quote, customer, totals, messageList, $t) {
         'use strict';
         return Component.extend({
             defaults: {
@@ -67,19 +66,34 @@ define(
             initApplePaySDK: function () {
                 if (this.buttonLoaded() === false) {
                     var self = this;
-                    $.getScript("https://applepay.cdn-apple.com/jsapi/v1/apple-pay-sdk.js", function () {
+                    var script = document.createElement('script');
+                    script.src = "https://applepay.cdn-apple.com/jsapi/1.latest/apple-pay-sdk.js";
+                    script.crossOrigin = "anonymous";
+                    script.onload = function () {
                         self.buttonLoaded(true);
-                    });
+                    };
+                    document.head.appendChild(script);
                 }
             },
 
             isApplePayAvailable: function () {
+                // Reading the buttonLoaded observable registers it as a Knockout dependency,
+                // so the template re-evaluates this check once the SDK has been loaded
+                if (!this.buttonLoaded()) {
+                    return false;
+                }
                 try {
-                    return window.ApplePaySession && window.ApplePaySession.canMakePayments();
+                    return !!window.ApplePaySession && window.ApplePaySession.canMakePayments();
                 } catch (exc) {
                     console.warn('Apple Pay could not be initialized:', exc);
                 }
                 return false;
+            },
+
+            /** Returns the shop locale in the BCP 47 format expected by the Apple Pay button (e.g. de-DE) */
+            getApplePayLocale: function () {
+                var locale = window.checkoutConfig.payment.payone.fullLocale;
+                return locale ? locale.replace('_', '-') : 'en-US';
             },
 
             afterPlaceOrder: function () {
@@ -119,11 +133,14 @@ define(
                     supportedNetworks: window.checkoutConfig.payment.payone.availableApplePayTypes,
                     merchantCapabilities: ['supports3DS'],
                     total: { label: window.checkoutConfig.payment.payone.storeName, amount: this.getOrderTotal() },
+                    lineItems: [
+                        {label: $t("Order Total"), amount: this.getOrderTotal(), type: 'final'},
+                    ],
                 };
-
-                var applePay = new PayoneApplePay(params);
-                applePay.onValidateMerchant(function(event) {
+                var session = new ApplePaySession(3, params);
+                session.onvalidatemerchant = function(event) {
                     var request = {
+                        validationUrl: event.validationURL,
                         cartId: quote.getQuoteId()
                     };
                     var serviceUrl = urlBuilder.createUrl('/carts/mine/payone-getApplePaySession', {});
@@ -139,25 +156,28 @@ define(
                     ).done(
                         function (response) {
                             if (response.success === true && response.session !== undefined) {
-                                applePay.completeMerchantValidation(response.session);
+                                session.completeMerchantValidation(JSON.parse(response.session));
                             } else {
                                 self.messageContainer.addErrorMessage({'message': "An error occured: " + response.errormessage});
-                                applePay.abort();
+                                session.abort();
                             }
                         }
                     ).fail(
                         function (response) {
                             self.messageContainer.addErrorMessage({'message': $t('An error occured.')});
-                            applePay.abort();
+                            session.abort();
                         }
                     );
-                });
-                applePay.onPaymentAuthorized(function(event) {
+                };
+                session.onpaymentauthorized = function(event) {
                     self.token(event.payment.token);
                     self.session(session);
                     self.placeOrder();
-                });
-                applePay.launch();
+                };
+                session.oncancel = function (event) {
+                    console.log("Apple Pay cancelled", event);
+                };
+                session.begin();
             }
         });
     }

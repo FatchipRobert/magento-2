@@ -36,26 +36,43 @@
             <label>Title</label>
             <config_path>payment/payone_applepay/title</config_path>
         </field>
-        <field id="check_config" translate="button_label" sortOrder="11" showInDefault="1" showInWebsite="1" showInStore="1">
-            <frontend_model>Payone\Core\Block\Adminhtml\Config\Form\Field\CheckApplePayConfiguration</frontend_model>
+        <field id="session_mode" translate="label" type="select" sortOrder="11" showInDefault="1" showInWebsite="1" showInStore="1">
+            <label>Apple Pay session request</label>
+            <source_model>Payone\Core\Model\Source\ApplePaySessionMode</source_model>
+            <config_path>payment/payone_applepay/session_mode</config_path>
         </field>
         <field id="merchant_id" translate="label" type="text" sortOrder="12" showInDefault="1" showInWebsite="1" showInStore="1">
             <label>Apple Pay Merchant Id</label>
             <config_path>payment/payone_applepay/merchant_id</config_path>
+            <depends>
+                <field id="session_mode">dev_account</field>
+            </depends>
         </field>
         <field id="certificate_file" translate="label" type="file" sortOrder="13" showInDefault="1" showInWebsite="1" showInStore="1">
             <label>Certificate file</label>
             <backend_model>Payone\Core\Model\System\Config\Backend\Upload</backend_model>
             <config_path>payment/payone_applepay/certificate_file</config_path>
+            <depends>
+                <field id="session_mode">dev_account</field>
+            </depends>
         </field>
         <field id="private_key_file" translate="label" type="file" sortOrder="14" showInDefault="1" showInWebsite="1" showInStore="1">
             <label>Private key file</label>
             <backend_model>Payone\Core\Model\System\Config\Backend\Upload</backend_model>
             <config_path>payment/payone_applepay/private_key_file</config_path>
+            <depends>
+                <field id="session_mode">dev_account</field>
+            </depends>
         </field>
         <field id="private_key_password" translate="label" type="password" sortOrder="16" showInDefault="1" showInWebsite="1" showInStore="1">
             <label>Private key password</label>
             <config_path>payment/payone_applepay/private_key_password</config_path>
+            <depends>
+                <field id="session_mode">dev_account</field>
+            </depends>
+        </field>
+        <field id="check_config" translate="button_label" sortOrder="17" showInDefault="1" showInWebsite="1" showInStore="1">
+            <frontend_model>Payone\Core\Block\Adminhtml\Config\Form\Field\CheckApplePayConfiguration</frontend_model>
         </field>
         <field id="types" translate="label" type="multiselect" sortOrder="18" showInDefault="1" showInWebsite="1" showInStore="1">
             <label>Allowed card types</label>

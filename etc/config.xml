@@ -297,6 +297,7 @@
                 <active>1</active>
                 <payment_action>Authorization</payment_action>
                 <model>Payone\Core\Model\Methods\ApplePay</model>
+                <session_mode>dev_account</session_mode>
                 <order_status>pending</order_status>
                 <title>PAYONE Apple Pay</title>
                 <allowspecific>0</allowspecific>
