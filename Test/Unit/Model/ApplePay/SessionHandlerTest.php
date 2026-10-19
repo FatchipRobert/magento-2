@@ -111,6 +111,6 @@ class SessionHandlerTest extends BaseTestCase
         $this->applePayHelper->method("hasPrivateKeyFile")->willReturn(false);
 
         $this->expectException(\Exception::class);
-        $result = $this->classToTest->getApplePaySession();
+        $result = $this->classToTest->getApplePaySession('https://apple-pay-gateway.apple.com/paymentservices/startSession');
     }
 }

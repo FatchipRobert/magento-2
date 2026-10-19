@@ -133,6 +133,9 @@ class SessionHandler
      */
     protected function isPemFile($sFilePath)
     {
+        if (!is_file($sFilePath) || !is_readable($sFilePath)) {
+            return false;
+        }
         $sContent = file_get_contents($sFilePath);
         return $sContent !== false && strpos($sContent, '-----BEGIN') !== false;
     }
